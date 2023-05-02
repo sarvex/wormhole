@@ -7,6 +7,7 @@ import (
 	"log"
 	"net/http"
 	_ "net/http/pprof" // #nosec G108 we are using a custom router (`router := mux.NewRouter()`) and thus not automatically expose pprof.
+	"net/url"
 	"os"
 	"os/signal"
 	"path"
@@ -640,6 +641,12 @@ func runNode(cmd *cobra.Command, args []string) {
 	if *suiRPC != "" {
 		if *suiWS == "" {
 			logger.Fatal("If --suiRPC is specified, then --suiWS must be specified")
+		}
+		// guardiand v2.16.0 shipped hardcoding "ws://" for the websocket url.
+		// This ensures the right thing happens if it is or is not specified.
+		*suiWS, err = fixSuiWsURL(logger, *suiWS)
+		if err != nil {
+			logger.Fatal(fmt.Sprintf("%s", err))
 		}
 		if *suiMoveEventType == "" {
 			logger.Fatal("If --suiRPC is specified, then --suiMoveEventType must be specified")
@@ -1627,4 +1634,17 @@ func unsafeDevModeEvmContractAddress(contractAddr string) string {
 func makeChannelPair[T any](cap int) (<-chan T, chan<- T) {
 	out := make(chan T, cap)
 	return out, out
+}
+
+// fixSuiWsURL ensures the websocket scheme is properly specified
+func fixSuiWsURL(logger *zap.Logger, value string) (string, error) {
+	u, _ := url.Parse(value)
+	// When the scheme is empty/nil or when the Host is empty but a scheme is set
+	if u == nil || u.Scheme == "" || (u.Scheme != "" && u.Host == "") {
+		logger.Warn(fmt.Sprintf("DEPRECATED: Prefix --suiWS address with the url scheme e.g.: ws://%s or wss://%s", value, value))
+		u = &url.URL{Scheme: "ws", Host: value}
+	} else if u.Scheme != "ws" && u.Scheme != "wss" {
+		return "", fmt.Errorf("invalid url scheme specified for --suiWS, try ws:// or wss://: %s", value)
+	}
+	return u.String(), nil
 }
