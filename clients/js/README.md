@@ -23,6 +23,7 @@ Commands:
                                                   base64 format)
   worm recover <digest> <signature>               Recover an address from a signature
   worm info contract <network> <chain> <module>   Print contract address
+  worm info registrations <network> <chain> <mod> Prints chain registrations for the specified
   worm info rpc <network> <chain>                 Print RPC address
   worm info chain-id <chain>                      Print the wormhole chain ID integer
                                                   associated with the specified chain name

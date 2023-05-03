@@ -1,16 +1,17 @@
-import { CONTRACTS } from "@certusone/wormhole-sdk/lib/cjs/utils/consts";
 import { getNetworkInfo, Network } from "@injectivelabs/networks";
+import { getStdFee, DEFAULT_STD_FEE } from "@injectivelabs/utils";
 import {
-  ChainRestAuthApi,
-  createTransaction,
-  MsgExecuteContractCompat,
   PrivateKey,
   TxGrpcApi,
+  ChainRestAuthApi,
+  createTransaction,
+  ChainGrpcWasmApi,
+  MsgExecuteContractCompat,
 } from "@injectivelabs/sdk-ts";
-import { DEFAULT_STD_FEE, getStdFee } from "@injectivelabs/utils";
 import { fromUint8Array } from "js-base64";
-import { NETWORKS } from "./networks";
 import { impossible, Payload } from "./vaa";
+import { NETWORKS } from "./networks";
+import { CHAINS, CONTRACTS } from "@certusone/wormhole-sdk/lib/cjs/utils/consts";
 
 export async function execute_injective(
   payload: Payload,
@@ -56,7 +57,7 @@ export async function execute_injective(
           console.log("Upgrading core contract");
           break;
         case "RecoverChainId":
-          throw new Error("RecoverChainId not supported on injective");
+          throw new Error("RecoverChainId not supported on injective")
         default:
           impossible(payload);
       }
@@ -80,7 +81,7 @@ export async function execute_injective(
           console.log("Upgrading contract");
           break;
         case "RecoverChainId":
-          throw new Error("RecoverChainId not supported on injective");
+          throw new Error("RecoverChainId not supported on injective")
         case "RegisterChain":
           console.log("Registering chain");
           break;
@@ -108,7 +109,7 @@ export async function execute_injective(
           console.log("Upgrading contract");
           break;
         case "RecoverChainId":
-          throw new Error("RecoverChainId not supported on injective");
+          throw new Error("RecoverChainId not supported on injective")
         case "RegisterChain":
           console.log("Registering chain");
           break;
@@ -195,4 +196,72 @@ export async function execute_injective(
       `Broadcasted transaction hash: ${JSON.stringify(txResponse.txHash)}`
     );
   }
+}
+
+export async function query_registrations_injective(
+  network: "MAINNET" | "TESTNET" | "DEVNET",
+  module: "Core" | "NFTBridge" | "TokenBridge",
+) {
+  let chain = "injective";
+  let n = NETWORKS[network][chain];
+  let contracts = CONTRACTS[network][chain];
+
+  let target_contract: string;
+
+  switch (module) {
+    case "TokenBridge":
+      target_contract = contracts.token_bridge;
+      break;
+    case "NFTBridge":
+      target_contract = contracts.nft_bridge;
+      break;
+    default:
+      throw new Error(`Invalid module: ${module}`);
+  }
+  
+  if (!target_contract) {
+    throw new Error(`Contract for ${module} on ${network} does not exist`);
+  }
+
+  console.log(`Querying the ${module} on ${network} ${chain} for registered chains.`);
+
+  const client = new ChainGrpcWasmApi(n.rpc);
+
+  // Query the bridge registration for all the chains in parallel.
+  const registrationsPromise = Promise.all(
+    Object.entries(CHAINS)
+      .filter(([c_name, _]) => c_name !== chain && c_name !== "unset")
+      .map(async ([c_name, c_id]) => [c_name, await (async () => {
+          let query_msg = {
+            chain_registration: {
+              chain: c_id,
+            },
+          };
+
+          let result = null;
+          try {
+            result = await client.fetchSmartContractState(
+              target_contract,
+              Buffer.from(
+                JSON.stringify(query_msg)
+              ).toString("base64")
+            );
+          } catch {
+            // Not logging anything because a chain not registered returns an error.
+          }
+        
+          return result;
+        })()
+      ])
+  )
+
+  const registrations = await registrationsPromise;
+
+  let results = {}
+  for (let [c_name, queryResponse] of registrations) {
+    if (queryResponse) {
+        results[c_name] = Buffer.from(queryResponse.address, 'base64').toString('hex');
+    }
+  }
+  console.log(results);
 }
