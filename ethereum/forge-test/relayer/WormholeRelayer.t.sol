@@ -26,7 +26,7 @@ import {MockRelayerIntegration, XAddress} from "../../contracts/mock/relayer/Moc
 import {ForwardTester} from "./ForwardTester.sol";
 import {TestHelpers} from "./TestHelpers.sol";
 import {CoreRelayerSerde} from "../../contracts/relayer/coreRelayer/CoreRelayerSerde.sol";
-import {toWormholeFormat, fromWormholeFormat} from "../../contracts/relayer/coreRelayer/Utils.sol";
+import {toWormholeFormat, fromWormholeFormat, returnLengthBound} from "../../contracts/relayer/coreRelayer/Utils.sol";
 import {BytesParsing} from "../../contracts/relayer/coreRelayer/BytesParsing.sol";
 import "../../contracts/interfaces/relayer/TypedUnits.sol";
 
@@ -3105,5 +3105,11 @@ contract WormholeRelayerTests is Test {
             test.relayerPayment == test.destinationAmount + test.refundAddressAmount,
             "Relayer paid the correct amount"
         );
+    }
+
+    function testReturnLengthUpperBoundConstantIsConsistent() public {
+        // `returnLengthBound` is defined in Utils.sol
+        // `RETURNDATA_TRUNCATION_THRESHOLD` is defined in IWormholeRelayer.sol
+        assertEq(returnLengthBound, RETURNDATA_TRUNCATION_THRESHOLD);
     }
 }
