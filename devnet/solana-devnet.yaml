@@ -96,8 +96,8 @@ spec:
             periodSeconds: 1
         - name: setup
           image: bridge-client
-          command:
-            - /usr/src/solana/devnet_setup.sh
+          command: ["/bin/bash", "-c"]
+          args: ["cd /usr/src/solana && ./devnet_setup.sh"]
           readinessProbe:
             tcpSocket:
               port: 2000
