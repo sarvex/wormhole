@@ -179,13 +179,8 @@ abstract contract CoreRelayerDelivery is CoreRelayerBase, IWormholeRelayerDelive
     try //force external call!
       this.executeInstruction(
         vaaInfo.deliveryInstruction,
-        DeliveryData({
-          sourceAddress: vaaInfo.deliveryInstruction.senderAddress,
-          sourceChainId: vaaInfo.sourceChainId,
-          maximumRefund: Wei.unwrap(vaaInfo.deliveryInstruction.maximumRefundTarget),
-          deliveryHash:  vaaInfo.deliveryVaaHash,
-          payload:       vaaInfo.deliveryInstruction.payload
-        }),
+        vaaInfo.sourceChainId,
+        vaaInfo.deliveryVaaHash,
         vaaInfo.encodedVMs
       )
     returns (uint8 _status, Gas _gasUsed, bytes memory targetRevertDataTruncated) {
@@ -245,8 +240,9 @@ abstract contract CoreRelayerDelivery is CoreRelayerBase, IWormholeRelayerDelive
   }
 
   function executeInstruction(
-    DeliveryInstruction calldata instruction,
-    DeliveryData calldata data,
+    DeliveryInstruction memory instruction,
+    uint16 sourceChainId,
+    bytes32 deliveryHash,
     bytes[] memory signedVaas
   ) external returns (
     uint8 status,
@@ -263,12 +259,20 @@ abstract contract CoreRelayerDelivery is CoreRelayerBase, IWormholeRelayerDelive
 
     // Calls the `receiveWormholeMessages` endpoint on the contract `instruction.targetAddress`
     // (with the gas limit and value specified in instruction, and `encodedVMs` as the input)
-    IWormholeReceiver deliveryTarget =
-      IWormholeReceiver(fromWormholeFormat(instruction.targetAddress));
+    address payable deliveryTarget = payable(fromWormholeFormat(instruction.targetAddress));
 
-    bytes memory callData = abi.encodeCall(deliveryTarget.receiveWormholeMessages, (data, signedVaas));
+    bytes memory callData = abi.encodeCall(IWormholeReceiver.receiveWormholeMessages, (
+      DeliveryData({
+        sourceAddress: instruction.senderAddress,
+        sourceChainId: sourceChainId,
+        maximumRefund: Wei.unwrap(instruction.maximumRefundTarget),
+        deliveryHash: deliveryHash,
+        payload: instruction.payload
+      }),
+      signedVaas
+    ));
     (bool success, bytes memory returnedData) = returnLengthBoundedCall(
-      payable(address(deliveryTarget)),
+      deliveryTarget,
       callData,
       Gas.unwrap(instruction.executionParameters.gasLimit),
       Wei.unwrap(instruction.receiverValueTarget)
