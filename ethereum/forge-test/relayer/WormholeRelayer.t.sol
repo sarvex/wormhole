@@ -1705,7 +1705,7 @@ contract WormholeRelayerTests is Test {
 
         {
             AttackForwardIntegration attackerContract =
-            new AttackForwardIntegration(setup.target.wormhole, setup.target.coreRelayer, setup.targetChainId, attackerSourceAddress);
+            new AttackForwardIntegration(setup.target.coreRelayer, setup.targetChainId, attackerSourceAddress);
             bytes memory attackMsg = "attack";
 
             vm.recordLogs();
