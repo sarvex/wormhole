@@ -17,7 +17,7 @@ contract BigRevertBufferIntegration is IWormholeReceiver {
     // This is the function which receives all messages from the remote contracts.
     function receiveWormholeMessages(
         DeliveryData memory deliveryData,
-        bytes[] memory vaas
+        bytes[] memory // vaas
     ) public payable override {
         bytes memory payload = deliveryData.payload;
         (uint256 revertLength,) = payload.asUint256(0);
