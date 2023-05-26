@@ -229,7 +229,7 @@ def test_rejects_evil_double_verify_vaa(gen_test, portal_core, client, creator, 
     accts = [seq_addr, guardian_addr]
 
     keys = portal_core.decodeLocalState(client, creator, core_id, guardian_addr)
-    print("keys: " + keys.hex())
+    print(f"keys: {keys.hex()}")
 
     sp = client.suggested_params()
 
@@ -252,7 +252,7 @@ def test_rejects_evil_double_verify_vaa(gen_test, portal_core, client, creator, 
         # keys
         kset = b''
         # Grab the key associated the signature
-        for q in range(int(len(sigs) / 66)):
+        for q in range(len(sigs) // 66):
             # Which guardian is this signature associated with
             g = sigs[q * 66]
             key = keys[((g * 20) + 1) : (((g + 1) * 20) + 1)]
@@ -268,25 +268,26 @@ def test_rejects_evil_double_verify_vaa(gen_test, portal_core, client, creator, 
             ))
         txns[-1].fee = 0
 
-    txns.append(transaction.ApplicationCallTxn(
-        sender=creator.getAddress(),
-        index=core_id,
-        on_complete=transaction.OnComplete.NoOpOC,
-        app_args=[b"verifyVAA", signed_vaa],
-        accounts=accts,
-        sp=sp
-    ))
-
-    # send second, unsigned "verifyVAA" call inside
-    # the transaction chain. this should obviously fail
-    txns.append(transaction.ApplicationCallTxn(
-        sender=creator.getAddress(),
-        index=core_id,
-        on_complete=transaction.OnComplete.NoOpOC,
-        app_args=[b"verifyVAA", trash_vaa],
-        accounts=accts,
-        sp=sp
-    ))
+    txns.extend(
+        (
+            transaction.ApplicationCallTxn(
+                sender=creator.getAddress(),
+                index=core_id,
+                on_complete=transaction.OnComplete.NoOpOC,
+                app_args=[b"verifyVAA", signed_vaa],
+                accounts=accts,
+                sp=sp,
+            ),
+            transaction.ApplicationCallTxn(
+                sender=creator.getAddress(),
+                index=core_id,
+                on_complete=transaction.OnComplete.NoOpOC,
+                app_args=[b"verifyVAA", trash_vaa],
+                accounts=accts,
+                sp=sp,
+            ),
+        )
+    )
     txns[-1].fee = txns[-1].fee * (1 + blocks)
 
     transaction.assign_group_id(txns)

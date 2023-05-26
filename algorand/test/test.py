@@ -39,19 +39,19 @@ class AlgoTest(PortalCore):
         super().__init__()
 
     def getBalances(self, client: AlgodClient, account: str) -> Dict[int, int]:
-        balances: Dict[int, int] = dict()
-    
+        balances: Dict[int, int] = {}
+
         accountInfo = client.account_info(account)
-    
+
         # set key 0 to Algo balance
         balances[0] = accountInfo["amount"]
-    
+
         assets: List[Dict[str, Any]] = accountInfo.get("assets", [])
         for assetHolding in assets:
             assetID = assetHolding["asset-id"]
             amount = assetHolding["amount"]
             balances[assetID] = amount
-    
+
         return balances
 
     def createTestApp(
@@ -99,7 +99,7 @@ class AlgoTest(PortalCore):
             raise
 
     def getVAA(self, client, sender, sid, app):
-        if sid == None:
+        if sid is None:
             raise Exception("getVAA called with a sid of None")
 
         saddr = get_application_address(app)
@@ -115,9 +115,7 @@ class AlgoTest(PortalCore):
             print("indexer is broken in local net... stop/clean/restart the sandbox")
             sys.exit(0)
 
-        txns = []
-
-        txns.append(
+        txns = [
             transaction.ApplicationCallTxn(
                 sender=sender.getAddress(),
                 index=self.tokenid,
@@ -125,11 +123,12 @@ class AlgoTest(PortalCore):
                 app_args=[b"nop"],
                 sp=client.suggested_params(),
             )
-        )
+        ]
+
         self.sendTxn(client, sender, txns, False)
 
-        if self.myindexer == None:
-            print("indexer address: " + self.INDEXER_ADDRESS)
+        if self.myindexer is None:
+            print(f"indexer address: {self.INDEXER_ADDRESS}")
             self.myindexer = indexer.IndexerClient(indexer_token=self.INDEXER_TOKEN, indexer_address=self.INDEXER_ADDRESS)
 
         while True:
@@ -176,7 +175,6 @@ class AlgoTest(PortalCore):
         aa = decode_address(get_application_address(appid)).hex()
         emitter_addr = self.optin(client, sender, self.coreid, 0, aa)
 
-        txns = []
         sp = client.suggested_params()
 
         a = transaction.ApplicationCallTxn(
@@ -191,8 +189,7 @@ class AlgoTest(PortalCore):
 
         a.fee = a.fee * 2
 
-        txns.append(a)
-
+        txns = [a]
         resp = self.sendTxn(client, sender, txns, True)
 
         self.INDEXER_ROUND = resp.confirmedRound
@@ -200,8 +197,6 @@ class AlgoTest(PortalCore):
         return self.parseSeqFromLog(resp)
 
     def createTestAsset(self, client, sender):
-        txns = []
-
         a = transaction.PaymentTxn(
             sender = sender.getAddress(), 
             sp = client.suggested_params(), 
@@ -209,8 +204,7 @@ class AlgoTest(PortalCore):
             amt = 300000
         )
 
-        txns.append(a)
-
+        txns = [a]
         sp = client.suggested_params()
         a = transaction.ApplicationCallTxn(
             sender=sender.getAddress(),
@@ -225,17 +219,14 @@ class AlgoTest(PortalCore):
         txns.append(a)
         transaction.assign_group_id(txns)
 
-        grp = []
         pk = sender.getPrivateKey()
-        for t in txns:
-            grp.append(t.sign(pk))
-
+        grp = [t.sign(pk) for t in txns]
         client.send_transactions(grp)
         resp = self.waitForTransaction(client, grp[-1].get_txid())
-        
+
         aid = int.from_bytes(resp.__dict__["logs"][0], "big")
 
-        print("Opting " + sender.getAddress() + " into " + str(aid))
+        print(f"Opting {sender.getAddress()} into {str(aid)}")
         self.asset_optin(client, sender, aid, sender.getAddress())
 
         txns = []
@@ -277,17 +268,17 @@ class AlgoTest(PortalCore):
         if not wormhole:
             creator = self.optin(client, sender, self.tokenid, asset_id, b"native".hex())
 
-        txns = []
         sp = client.suggested_params()
 
-        txns.append(transaction.ApplicationCallTxn(
-            sender=sender.getAddress(),
-            index=self.tokenid,
-            on_complete=transaction.OnComplete.NoOpOC,
-            app_args=[b"nop"],
-            sp=sp
-        ))
-
+        txns = [
+            transaction.ApplicationCallTxn(
+                sender=sender.getAddress(),
+                index=self.tokenid,
+                on_complete=transaction.OnComplete.NoOpOC,
+                app_args=[b"nop"],
+                sp=sp,
+            )
+        ]
         mfee = self.getMessageFee()
         if (mfee > 0):
             txns.append(transaction.PaymentTxn(sender = sender.getAddress(), sp = sp, receiver = get_application_address(self.tokenid), amt = mfee))
@@ -307,11 +298,7 @@ class AlgoTest(PortalCore):
             sp=sp
         )
 
-        if (mfee > 0):
-            a.fee = a.fee * 3
-        else:
-            a.fee = a.fee * 2
-
+        a.fee = a.fee * 3 if (mfee > 0) else a.fee * 2
         txns.append(a)
 
         resp = self.sendTxn(client, sender, txns, True)
@@ -349,7 +336,7 @@ class AlgoTest(PortalCore):
 
         if not wormhole:
             creator = self.optin(client, sender, self.tokenid, asset_id, b"native".hex())
-            print("non wormhole account " + creator)
+            print(f"non wormhole account {creator}")
 
         sp = client.suggested_params()
 
@@ -413,7 +400,7 @@ class AlgoTest(PortalCore):
             accounts=[emitter_addr, creator, c["address"]]
 
         args = [b"sendTransfer", asset_id, quantity, receiver, chain, fee]
-        if None != payload:
+        if payload != None:
             args.append(payload)
 
         #pprint.pprint(args)
@@ -529,11 +516,11 @@ class AlgoTest(PortalCore):
         if self.args.mnemonic:
             self.foundation = Account.FromMnemonic(self.args.mnemonic)
 
-        if self.foundation == None:
+        if self.foundation is None:
             print("Generating the foundation account...")
             self.foundation = self.getTemporaryAccount(self.client)
 
-        if self.foundation == None:
+        if self.foundation is None:
             print("We dont have a account?  ")
             sys.exit(1)
 
@@ -543,7 +530,7 @@ class AlgoTest(PortalCore):
 
         print("Creating the PortalCore app")
         self.coreid = self.createPortalCoreApp(client=client, sender=foundation)
-        print("coreid = " + str(self.coreid) + " " + get_application_address(self.coreid))
+        print(f"coreid = {str(self.coreid)} {get_application_address(self.coreid)}")
 
         print("bootstrapping the guardian set...")
         bootVAA = bytes.fromhex(gt.genGuardianSetUpgrade(gt.guardianPrivKeys, 1, 1, seq, seq))
@@ -572,7 +559,9 @@ class AlgoTest(PortalCore):
 
         print("Create the token bridge")
         self.tokenid = self.createTokenBridgeApp(client, foundation)
-        print("token bridge " + str(self.tokenid) + " address " + get_application_address(self.tokenid))
+        print(
+            f"token bridge {str(self.tokenid)} address {get_application_address(self.tokenid)}"
+        )
 
         ret = self.devnetUpgradeVAA()
 #        pprint.pprint(ret)
@@ -584,7 +573,7 @@ class AlgoTest(PortalCore):
         print("successfully sent upgrade requests")
 
         for r in range(1, 6):
-            print("Registering chain " + str(r))
+            print(f"Registering chain {str(r)}")
             v = gt.genRegisterChain(gt.guardianPrivKeys, 2, seq, seq, r)
             vaa = bytes.fromhex(v)
 #            pprint.pprint((v, self.parseVAA(vaa)))
@@ -606,13 +595,13 @@ class AlgoTest(PortalCore):
         p = self.parseVAA(attestVAA)
         chain_addr = self.optin(client, player, self.tokenid, p["FromChain"], p["Contract"])
 
-        print("Create the same asset " + str(seq))
+        print(f"Create the same asset {seq}")
         # paul - updateWrappedOnAlgorand
         attestVAA = bytes.fromhex(gt.genAssetMeta(gt.guardianPrivKeys, 2, seq, seq, bytes.fromhex("4523c3F29447d1f32AEa95BEBD00383c4640F1b4"), 1, 8, b"USD2C", b"Circle2Coin"))
         self.submitVAA(attestVAA, client, player, self.tokenid)
         seq += 1
 
-        print("Transfer the asset " + str(seq))
+        print(f"Transfer the asset {seq}")
         transferVAA = bytes.fromhex(gt.genTransfer(gt.guardianPrivKeys, 1, 1, 1, 1, bytes.fromhex("4523c3F29447d1f32AEa95BEBD00383c4640F1b4"), 1, decode_address(player.getAddress()), 8, 0))
         # paul - redeemOnAlgorand
         vaaLogs.append(["redeemOnAlgorand", transferVAA.hex()])
@@ -686,202 +675,6 @@ class AlgoTest(PortalCore):
             assert result, f"!!! ERR: sending same VAA twice worked. offending vaa hex:\n{vaa.hex()}"
             seq+=1
         return
-
-        def sending_vaa_version_not_one_fails(seq, version):
-            vaa = bytearray.fromhex(gt.genRandomValidTransfer(
-                signers=gt.guardianPrivKeys,
-                guardianSet=1,
-                seq=seq,
-                tokenAddress=bytes.fromhex("4523c3F29447d1f32AEa95BEBD00383c4640F1b4"),
-                toAddress=decode_address(player.getAddress()),
-                amount_max=self.getBalances(client, player.getAddress())[0], # 0 is the ALGO amount
-                ))
-
-            # we know VAA is malleable in the first four fields:
-            # version, guardian set index, len of signatures, signatures
-            vaa[0] = version
-
-            try:
-                self.submitVAA(vaa, client, player, self.tokenid)
-            except algosdk.error.AlgodHTTPError as e:
-                # right at the beginning of checkForDuplicate()
-                if "opcodes=pushint 919" in str(e):
-                    return True, vaa, None
-                return False, vaa, e
-
-            return False, vaa, None
-
-        # no need to increase _seq_ after this one as if everything went ok...
-        # all VAAs should have been invalid!
-        for _ in range(self.args.loops):
-            version = random.randint(0, 255)
-
-            if version == 1:
-                continue
-
-            ok, vaa, err = sending_vaa_version_not_one_fails(seq, version)
-            if err != None:
-                assert False, f"!!! ERR: unepexted error when testing version. error:\n {err}\noffending vaa hex:\n{vaa.hex()}"
-
-            assert ok, f"!!! ERR: Invalid version worked. offending version: {version}. offending vaa:\n{vaa}"
-
-        print("Create the test app we will use to torture ourselves using a new player")
-        player2 = self.getTemporaryAccount(client)
-        print("player2 address " + player2.getAddress())
-        player3 = self.getTemporaryAccount(client)
-        print("player3 address " + player3.getAddress())
-
-        self.testid = self.createTestApp(client, player2)
-        print("testid " + str(self.testid) + " address " + get_application_address(self.testid))
-
-        print("Sending a message payload to the core contract")
-        sid = self.publishMessage(client, player, b"you also suck", self.testid)
-        self.publishMessage(client, player2, b"second suck", self.testid)
-        self.publishMessage(client, player3, b"last message", self.testid)
-
-        print("Lets create a brand new non-wormhole asset and try to attest and send it out")
-        self.testasset = self.createTestAsset(client, player2)
-        print("test asset id: " + str(self.testasset))
-        
-        print("Now lets create an attest of ALGO")
-        sid = self.testAttest(client, player2, 0)
-        vaa = self.getVAA(client, player, sid, self.tokenid)
-        v = self.parseVAA(bytes.fromhex(vaa))
-        print("We got a " + str(v["Meta"]))
-
-        print("Lets try to create an attest for a non-wormhole thing with a huge number of decimals")
-        # paul - attestFromAlgorand
-        sid = self.testAttest(client, player2, self.testasset)
-        print("... track down the generated VAA")
-        vaa = self.getVAA(client, player, sid, self.tokenid)
-        v = self.parseVAA(bytes.fromhex(vaa))
-        print("We got a " + v["Meta"])
-
-        pprint.pprint(self.getBalances(client, player.getAddress()))
-        pprint.pprint(self.getBalances(client, player2.getAddress()))
-        pprint.pprint(self.getBalances(client, player3.getAddress()))
-
-        print("Lets transfer that asset to one of our other accounts... first lets create the vaa")
-        # paul - transferFromAlgorand
-        sid = self.transferFromAlgorand(client, player2, self.testasset, 100, decode_address(player3.getAddress()), 8, 0)
-        print("... track down the generated VAA")
-        vaa = self.getVAA(client, player, sid, self.tokenid)
-        print(".. and lets pass that to player3")
-        vaaLogs.append(["transferFromAlgorand", vaa])
-        #pprint.pprint(vaaLogs)
-        self.submitVAA(bytes.fromhex(vaa), client, player3, self.tokenid)
-
-        pprint.pprint(["player", self.getBalances(client, player.getAddress())])
-        pprint.pprint(["player2", self.getBalances(client, player2.getAddress())])
-        pprint.pprint(["player3", self.getBalances(client, player3.getAddress())])
-
-        # Lets split it into two parts... the payload and the fee
-        print("Lets split it into two parts... the payload and the fee (400 should go to player, 600 should go to player3)")
-        sid = self.transferFromAlgorand(client, player2, self.testasset, 1000, decode_address(player3.getAddress()), 8, 400)
-        print("... track down the generated VAA")
-        vaa = self.getVAA(client, player, sid, self.tokenid)
-#        pprint.pprint(self.parseVAA(bytes.fromhex(vaa)))
-        print(".. and lets pass that to player3 with fees being passed to player acting as a relayer (" + str(self.tokenid) + ")")
-        self.submitVAA(bytes.fromhex(vaa), client, player, self.tokenid)
-
-        pprint.pprint(["player", self.getBalances(client, player.getAddress())])
-        pprint.pprint(["player2", self.getBalances(client, player2.getAddress())])
-        pprint.pprint(["player3", self.getBalances(client, player3.getAddress())])
-
-#        sys.exit(0)
-
-        # Now it gets tricky, lets create a virgin account...
-        pk, addr  = account.generate_account()
-        emptyAccount = Account(pk)
-
-        print("How much is in the empty account? (" + addr + ")")
-        pprint.pprint(self.getBalances(client, emptyAccount.getAddress()))
-
-        # paul - transferFromAlgorand
-        print("Lets transfer algo this time.... first lets create the vaa")
-        sid = self.transferFromAlgorand(client, player2, 0, 1000000, decode_address(emptyAccount.getAddress()), 8, 0)
-        print("... track down the generated VAA")
-        vaa = self.getVAA(client, player, sid, self.tokenid)
-#        pprint.pprint(vaa)
-        print(".. and lets pass that to the empty account.. but use somebody else to relay since we cannot pay for it")
-
-        # paul - redeemOnAlgorand
-        self.submitVAA(bytes.fromhex(vaa), client, player, self.tokenid)
-
-        print("=================================================")
-
-        print("How much is in the source account now?")
-        pprint.pprint(self.getBalances(client, player2.getAddress()))
-
-        print("How much is in the empty account now?")
-        pprint.pprint(self.getBalances(client, emptyAccount.getAddress()))
-
-        print("How much is in the player3 account now?")
-        pprint.pprint(self.getBalances(client, player3.getAddress()))
-
-        print("Lets transfer more algo.. split 40/60 with the relayer.. going to player3")
-        sid = self.transferFromAlgorand(client, player2, 0, 1000000, decode_address(player3.getAddress()), 8, 400000)
-        print("... track down the generated VAA")
-        vaa = self.getVAA(client, player, sid, self.tokenid)
-        print(".. and lets pass that to player3.. but use the previously empty account to relay it")
-        self.submitVAA(bytes.fromhex(vaa), client, emptyAccount, self.tokenid)
-
-        print("How much is in the source account now?")
-        pprint.pprint(self.getBalances(client, player2.getAddress()))
-
-        print("How much is in the empty account now?")
-        pprint.pprint(self.getBalances(client, emptyAccount.getAddress()))
-
-        print("How much is in the player3 account now?")
-        pprint.pprint(self.getBalances(client, player3.getAddress()))
-
-        print("How about a payload3: " + self.testid.to_bytes(32, "big").hex())
-        sid = self.transferFromAlgorand(client, player2, 0, 100, self.testid.to_bytes(32, "big"), 8, 0, b'hi mom')
-        print("... track down the generated VAA")
-        vaa = self.getVAA(client, player, sid, self.tokenid)
-
-        print("player address: " + decode_address(player2.getAddress()).hex())
-        print("payload3 vaa: "+ vaa)
-        pprint.pprint(self.parseVAA(bytes.fromhex(vaa)))
-
-        print("testid balance before = ", self.getBalances(client, get_application_address(self.testid)))
-
-        print(".. Lets let player3 relay it for us")
-        self.submitVAA(bytes.fromhex(vaa), client, player3, self.tokenid)
-
-
-        print("testid balance after = ", self.getBalances(client, get_application_address(self.testid)))
-
-#        sys.exit(0)
-
-        print(".. Ok, now it is time to up the message fees")
-
-        bal = self.getBalances(client, get_application_address(self.coreid))
-        print("core contract has " + str(bal) + " algo (" + get_application_address(self.coreid) + ")")
-        print("core contract has a MessageFee set to " + str(self.getMessageFee()))
-
-        seq += 1
-        v = gt.genGSetFee(gt.guardianPrivKeys, 2, seq, seq, 2000000)
-        self.submitVAA(bytes.fromhex(v), client, player, self.coreid)
-        seq += 1
-
-        print("core contract now has a MessageFee set to " + str(self.getMessageFee()))
-
-#        v = gt.genGSetFee(gt.guardianPrivKeys, 2, seq, seq, 0)
-#        self.submitVAA(bytes.fromhex(v), client, player, self.coreid)
-#        seq += 1
-
-#        print("core contract is back to  " + str(self.getMessageFee()))
-
-        print("Generating an attest.. This will cause a message to get published .. which should cause fees to get sent to the core contract")
-        sid = self.testAttest(client, player2, self.testasset)
-        print("... track down the generated VAA")
-        vaa = self.getVAA(client, player, sid, self.tokenid)
-        v = self.parseVAA(bytes.fromhex(vaa))
-        print("We got a " + v["Meta"])
-
-        bal = self.getBalances(client, get_application_address(self.coreid))
-        print("core contract has " + str(bal) + " algo (" + get_application_address(self.coreid) + ")")
 
 #        print("player account: " + player.getAddress())
 #        pprint.pprint(client.account_info(player.getAddress()))

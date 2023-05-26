@@ -14,8 +14,7 @@ def portal_core():
     return portal_core
 @pytest.fixture(scope='module')
 def gen_test():
-    gen_test = GenTest(False)
-    return gen_test
+    return GenTest(False)
 @pytest.fixture(scope='module')
 def client(portal_core): 
     return portal_core.getAlgodClient()

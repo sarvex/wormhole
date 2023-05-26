@@ -57,8 +57,8 @@ class Account:
         self.sk = privateKey
         self.addr = account.address_from_private_key(privateKey)
         print (privateKey)
-        print ("    " + self.getMnemonic())
-        print ("    " + self.addr)
+        print(f"    {self.getMnemonic()}")
+        print(f"    {self.addr}")
 
     def getAddress(self) -> str:
         return self.addr
@@ -113,7 +113,7 @@ class PortalCore:
 
         self.myindexer = None
 
-        self.seed_amt = int(1002000)  # The black magic in this number... 
+        self.seed_amt = 1002000
         self.cache = {}
         self.asset_cache = {}
 
@@ -138,7 +138,7 @@ class PortalCore:
         self.tokenid = args.tokenid
 
         if exists(self.args.env):
-            if self.gt == None:
+            if self.gt is None:
                 self.gt = GenTest(False)
 
             with open(self.args.env, encoding = 'utf-8') as f:
@@ -146,10 +146,10 @@ class PortalCore:
                     e = line.rstrip('\n').split("=")
                     if "INIT_SIGNERS_CSV" in e[0]:
                         self.gt.guardianKeys = e[1].split(",")
-                        print("guardianKeys=" + str(self.gt.guardianKeys))
+                        print(f"guardianKeys={str(self.gt.guardianKeys)}")
                     if "INIT_SIGNERS_KEYS_CSV" in e[0]:
                         self.gt.guardianPrivKeys = e[1].split(",")
-                        print("guardianPrivKeys=" + str(self.gt.guardianPrivKeys))
+                        print(f"guardianPrivKeys={str(self.gt.guardianPrivKeys)}")
 
     def waitForTransaction(
             self, client: AlgodClient, txID: str, timeout: int = 10
@@ -157,23 +157,21 @@ class PortalCore:
         lastStatus = client.status()
         lastRound = lastStatus["last-round"]
         startRound = lastRound
-    
+
         while lastRound < startRound + timeout:
             pending_txn = client.pending_transaction_info(txID)
-    
+
             if pending_txn.get("confirmed-round", 0) > 0:
                 return PendingTxnResponse(pending_txn)
-    
+
             if pending_txn["pool-error"]:
-                raise Exception("Pool error: {}".format(pending_txn["pool-error"]))
-    
+                raise Exception(f'Pool error: {pending_txn["pool-error"]}')
+
             lastStatus = client.status_after_block(lastRound + 1)
-    
+
             lastRound += 1
-    
-        raise Exception(
-            "Transaction {} not confirmed after {} rounds".format(txID, timeout)
-        )
+
+        raise Exception(f"Transaction {txID} not confirmed after {timeout} rounds")
 
     def getKmdClient(self) -> KMDClient:
         return KMDClient(self.KMD_TOKEN, self.KMD_ADDRESS)
@@ -181,19 +179,21 @@ class PortalCore:
     def getGenesisAccounts(self) -> List[Account]:
         if self.kmdAccounts is None:
             kmd = self.getKmdClient()
-    
+
             wallets = kmd.list_wallets()
-            walletID = None
-            for wallet in wallets:
-                if wallet["name"] == self.KMD_WALLET_NAME:
-                    walletID = wallet["id"]
-                    break
-    
+            walletID = next(
+                (
+                    wallet["id"]
+                    for wallet in wallets
+                    if wallet["name"] == self.KMD_WALLET_NAME
+                ),
+                None,
+            )
             if walletID is None:
-                raise Exception("Wallet not found: {}".format(self.KMD_WALLET_NAME))
-    
+                raise Exception(f"Wallet not found: {self.KMD_WALLET_NAME}")
+
             walletHandle = kmd.init_wallet_handle(walletID, self.KMD_WALLET_PASSWORD)
-    
+
             try:
                 addresses = kmd.list_keys(walletHandle)
                 privateKeys = [
@@ -203,7 +203,7 @@ class PortalCore:
                 self.kmdAccounts = [Account(sk) for sk in privateKeys]
             finally:
                 kmd.release_wallet_handle(walletHandle)
-    
+
         return self.kmdAccounts
 
 
@@ -233,10 +233,10 @@ class PortalCore:
 
     def getTemporaryAccount(self, client: AlgodClient) -> Account:
         if len(self.accountList) == 0:
-            sks = [account.generate_account()[0] for i in range(3)]
+            sks = [account.generate_account()[0] for _ in range(3)]
             self.accountList = [Account(sk) for sk in sks]
             self._fundFromGenesis(self.accountList, self.FUNDING_AMOUNT, client)
-    
+
         return self.accountList.pop()
 
     def fundDevAccounts(self, client: AlgodClient):
@@ -253,7 +253,7 @@ class PortalCore:
 
         for mnemo in devAcctsMnemonics:
             acc = Account.FromMnemonic(mnemo)
-            print('Funding dev account {} with {} uALGOs'.format(acc.addr, accountFunding))
+            print(f'Funding dev account {acc.addr} with {accountFunding} uALGOs')
             accountList.append(acc)
 
         self._fundFromGenesis(accountList, accountFunding, client)
@@ -263,25 +263,24 @@ class PortalCore:
         return AlgodClient(self.ALGOD_TOKEN, self.ALGOD_ADDRESS)
 
     def getBalances(self, client: AlgodClient, account: str) -> Dict[int, int]:
-        balances: Dict[int, int] = dict()
-    
+        balances: Dict[int, int] = {}
+
         accountInfo = client.account_info(account)
-    
+
         # set key 0 to Algo balance
         balances[0] = accountInfo["amount"]
-    
+
         assets: List[Dict[str, Any]] = accountInfo.get("assets", [])
         for assetHolding in assets:
             assetID = assetHolding["asset-id"]
             amount = assetHolding["amount"]
             balances[assetID] = amount
-    
+
         return balances
 
     def fullyCompileContract(self, client: AlgodClient, contract: Expr) -> bytes:
         teal = compileTeal(contract, mode=Mode.Application, version=6)
-        response = client.compile(teal)
-        return response
+        return client.compile(teal)
 
     # helper function that formats global state for printing
     def format_state(self, state):
@@ -310,10 +309,7 @@ class PortalCore:
     def read_state(self, client, addr, app_id):
         results = client.account_info(addr)
         apps_created = results['created-apps']
-        for app in apps_created:
-            if app['id'] == app_id:
-                return app
-        return {}
+        return next((app for app in apps_created if app['id'] == app_id), {})
 
     def encoder(self, type, val):
         if type == 'uint8':
@@ -326,50 +322,61 @@ class PortalCore:
             return encode_single(type, val).hex()[64-(16):64]
         if type == 'uint128':
             return encode_single(type, val).hex()[64-(32):64]
-        if type == 'uint256' or type == 'bytes32':
-            return encode_single(type, val).hex()[64-(64):64]
+        if type in ['uint256', 'bytes32']:
+            return encode_single(type, val).hex()[:64]
         raise Exception("invalid type")
 
     def devnetUpgradeVAA(self):
         v = self.genUpgradePayload()
-        print("core payload: " + str(v[0]))
-        print("token payload: " + str(v[1]))
+        print(f"core payload: {str(v[0])}")
+        print(f"token payload: {str(v[1])}")
 
-        if self.gt == None:
+        if self.gt is None:
             self.gt = GenTest(False)
 
-        emitter = bytes.fromhex(self.zeroPadBytes[0:(31*2)] + "04")
+        emitter = bytes.fromhex(f"{self.zeroPadBytes[:31 * 2]}04")
 
         guardianSet = self.getGovSet()
 
-        print("guardianSet: " + str(guardianSet))
+        print(f"guardianSet: {str(guardianSet)}")
 
         nonce = int(random.random() * 20000)
-        ret = [
-            self.gt.createSignedVAA(guardianSet, self.gt.guardianPrivKeys, int(time.time()), nonce, 1, emitter, int(random.random() * 20000), 32, 8, v[0]),
-            self.gt.createSignedVAA(guardianSet, self.gt.guardianPrivKeys, int(time.time()), nonce, 1, emitter, int(random.random() * 20000), 32, 8, v[1]),
+        return [
+            self.gt.createSignedVAA(
+                guardianSet,
+                self.gt.guardianPrivKeys,
+                int(time.time()),
+                nonce,
+                1,
+                emitter,
+                int(random.random() * 20000),
+                32,
+                8,
+                v[0],
+            ),
+            self.gt.createSignedVAA(
+                guardianSet,
+                self.gt.guardianPrivKeys,
+                int(time.time()),
+                nonce,
+                1,
+                emitter,
+                int(random.random() * 20000),
+                32,
+                8,
+                v[1],
+            ),
         ]
-        
-#        pprint.pprint(self.parseVAA(bytes.fromhex(ret[0])))
-#        pprint.pprint(self.parseVAA(bytes.fromhex(ret[1])))
-
-        return ret
 
     def getMessageFee(self):
         s = self.client.application_info(self.coreid)["params"]["global-state"]
         k = base64.b64encode(b"MessageFee").decode('utf-8')
-        for x in s:
-            if x["key"] == k:
-                return x["value"]["uint"]
-        return -1
+        return next((x["value"]["uint"] for x in s if x["key"] == k), -1)
 
     def getGovSet(self):
         s = self.client.application_info(self.coreid)["params"]["global-state"]
         k = base64.b64encode(b"currentGuardianSetIndex").decode('utf-8')
-        for x in s:
-            if x["key"] == k:
-                return x["value"]["uint"]
-        return -1
+        return next((x["value"]["uint"] for x in s if x["key"] == k), -1)
 
     def genUpgradePayload(self):
         approval1, clear1 = getCoreContracts(False, self.args.core_approve, self.args.core_clear, self.client, seed_amt=self.seed_amt, tmpl_sig=self.tsig, devMode = self.devnet or self.args.testnet)
@@ -379,7 +386,7 @@ class PortalCore:
         return self.genUpgradePayloadBody(approval1, approval2)
 
     def genUpgradePayloadBody(self, approval1, approval2):
-        b  = self.zeroPadBytes[0:(28*2)]
+        b = self.zeroPadBytes[:28*2]
         b += self.encoder("uint8", ord("C"))
         b += self.encoder("uint8", ord("o"))
         b += self.encoder("uint8", ord("r"))
@@ -392,7 +399,7 @@ class PortalCore:
 
         ret = [b]
 
-        b  = self.zeroPadBytes[0:((32 -11)*2)]
+        b = self.zeroPadBytes[:(32 -11)*2]
         b += self.encoder("uint8", ord("T"))
         b += self.encoder("uint8", ord("o"))
         b += self.encoder("uint8", ord("k"))
@@ -532,12 +539,12 @@ class PortalCore:
             ai = client.account_info(addr)
             if "apps-local-state" not in ai:
                 return False
-    
+
             for app in ai["apps-local-state"]:
                 if app["id"] == app_id:
                     return True
         except:
-            print("Failed to find account {}".format(addr))
+            print(f"Failed to find account {addr}")
         return False
 
     def optin(self, client, sender, app_id, idx, emitter, doCreate=True):
@@ -591,11 +598,8 @@ class PortalCore:
     def sendTxn(self, client, sender, txns, doWait):
         transaction.assign_group_id(txns)
 
-        grp = []
         pk = sender.getPrivateKey()
-        for t in txns:
-            grp.append(t.sign(pk))
-
+        grp = [t.sign(pk) for t in txns]
         client.send_transactions(grp)
         if doWait:
             return self.waitForTransaction(client, grp[-1].get_txid())
@@ -661,7 +665,7 @@ class PortalCore:
                 app_state = app["key-value"]
 
         ret = b''
-        if None != app_state:
+        if app_state != None:
             vals = {}
             e = bytes.fromhex("00"*127)
             for kv in app_state:
@@ -682,7 +686,11 @@ class PortalCore:
     # cases
 
     def simpleVAA(self, vaa, client, sender, appid):
-        p = {"version": int.from_bytes(vaa[0:1], "big"), "index": int.from_bytes(vaa[1:5], "big"), "siglen": int.from_bytes(vaa[5:6], "big")}
+        p = {
+            "version": int.from_bytes(vaa[:1], "big"),
+            "index": int.from_bytes(vaa[1:5], "big"),
+            "siglen": int.from_bytes(vaa[5:6], "big"),
+        }
         ret["signatures"] = vaa[6:(ret["siglen"] * 66) + 6]
         ret["sigs"] = []
         for i in range(ret["siglen"]):
@@ -713,8 +721,6 @@ class PortalCore:
 
         sp = client.suggested_params()
 
-        txns = []
-
         # Right now there is not really a good way to estimate the fees,
         # in production, on a conjested network, how much verifying
         # the signatures is going to cost.
@@ -729,16 +735,14 @@ class PortalCore:
         if ((200000 - bal[0]) >= pmt):
             pmt = 200000 - bal[0]
 
-        #print("Sending %d algo to cover fees" % (pmt))
-        txns.append(
+        txns = [
             transaction.PaymentTxn(
-                sender = sender.getAddress(), 
-                sp = sp, 
-                receiver = self.vaa_verify["hash"], 
-                amt = pmt
+                sender=sender.getAddress(),
+                sp=sp,
+                receiver=self.vaa_verify["hash"],
+                amt=pmt,
             )
-        )
-
+        ]
         # How many signatures can we process in a single txn... we can do 9!
         bsize = (9*66)
         blocks = int(len(p["signatures"]) / bsize) + 1
@@ -756,7 +760,7 @@ class PortalCore:
             # keys
             kset = b''
             # Grab the key associated the signature
-            for q in range(int(len(sigs) / 66)):
+            for q in range(len(sigs) // 66):
                 # Which guardian is this signature associated with
                 g = sigs[q * 66]
                 key = keys[((g * 20) + 1) : (((g + 1) * 20) + 1)]
@@ -809,7 +813,7 @@ class PortalCore:
         for app in ai["apps-local-state"]:
             if app["id"] == app_id:
                 app_state = app["key-value"]
-        if app_state == None:
+        if app_state is None:
             return False
 
         start = int(seq / max_bits) * max_bits

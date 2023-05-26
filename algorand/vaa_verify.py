@@ -72,35 +72,50 @@ def sig_check(signatures, dhash, keys):
             rec_pk_x.store(Bytes("")),
             rec_pk_y.store(Bytes("")),
             slen.store(Len(signatures)),
-            For(Seq([
-                si.store(Int(0)),
-                ki.store(Int(0))
-            ]),
+            For(
+                Seq([si.store(Int(0)), ki.store(Int(0))]),
                 si.load() < slen.load(),
-                Seq([
-                    si.store(si.load() + Int(66)),
-                    ki.store(ki.load() + Int(20))
-                ])).Do(
-                    Seq([
+                Seq(
+                    [
+                        si.store(si.load() + Int(66)),
+                        ki.store(ki.load() + Int(20)),
+                    ]
+                ),
+            ).Do(
+                Seq(
+                    [
                         InlineAssembly(
                             "ecdsa_pk_recover Secp256k1",
                             dhash,
-                            Btoi(Extract(signatures, si.load() + Int(65), Int(1))),
-                            Extract(signatures, si.load() + Int(1), Int(32)),       # R
-                            Extract(signatures, si.load() + Int(33), Int(32)),      # S
-                            type=TealType.none),
-
-                        # returned values in stack, pass to scratch-vars
-
-                        InlineAssembly("store " + str(SLOTID_RECOVERED_PK_Y)),
-                        InlineAssembly("store " + str(SLOTID_RECOVERED_PK_X)),
-
-                        # Generate Ethereum-type public key, compare with guardian key.
-
-                        Assert(Extract(keys, ki.load(), Int(20)) == Substring(Keccak256(Concat(rec_pk_x.load(), rec_pk_y.load())), Int(12), Int(32)))
-                    ])
+                            Btoi(
+                                Extract(
+                                    signatures, si.load() + Int(65), Int(1)
+                                )
+                            ),
+                            Extract(
+                                signatures, si.load() + Int(1), Int(32)
+                            ),  # R
+                            Extract(
+                                signatures, si.load() + Int(33), Int(32)
+                            ),  # S
+                            type=TealType.none,
+                        ),
+                        InlineAssembly(f"store {str(SLOTID_RECOVERED_PK_Y)}"),
+                        InlineAssembly(f"store {str(SLOTID_RECOVERED_PK_X)}"),
+                        Assert(
+                            Extract(keys, ki.load(), Int(20))
+                            == Substring(
+                                Keccak256(
+                                    Concat(rec_pk_x.load(), rec_pk_y.load())
+                                ),
+                                Int(12),
+                                Int(32),
+                            )
+                        ),
+                    ]
+                )
             ),
-            Return(Int(1))
+            Return(Int(1)),
         ]
     )
 

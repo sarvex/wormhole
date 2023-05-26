@@ -37,8 +37,7 @@ portal_transfer_selector = MethodSignature("portal_transfer(byte[])byte[]")
 
 def fullyCompileContract(client: AlgodClient, contract: Expr) -> bytes:
     teal = compileTeal(contract, mode=Mode.Application, version=6)
-    response = client.compile(teal)
-    return response
+    return client.compile(teal)
 
 def clear_app():
     return Int(1)
