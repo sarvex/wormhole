@@ -85,10 +85,7 @@ class TmplSig:
         return LogicSigAccount(bytes(contract))
 
     def get_bytecode_chunk(self, idx: int) -> Bytes:
-        start = 0
-        if idx > 0:
-            start = list(self.sorted.values())[idx - 1]["position"] + 1
-
+        start = list(self.sorted.values())[idx - 1]["position"] + 1 if idx > 0 else 0
         stop = len(self.src)
         if idx < len(self.sorted):
             stop = list(self.sorted.values())[idx]["position"]
@@ -97,16 +94,12 @@ class TmplSig:
         return Bytes(chunk)
 
     def get_bytecode_raw(self, idx: int):
-        start = 0
-        if idx > 0:
-            start = list(self.sorted.values())[idx - 1]["position"] + 1
-
+        start = list(self.sorted.values())[idx - 1]["position"] + 1 if idx > 0 else 0
         stop = len(self.src)
         if idx < len(self.sorted):
             stop = list(self.sorted.values())[idx]["position"]
 
-        chunk = self.src[start:stop]
-        return chunk
+        return self.src[start:stop]
 
     def get_sig_tmpl(self):
         def sig_tmpl():
@@ -136,10 +129,6 @@ class TmplSig:
 if __name__ == '__main__':
     core = TmplSig("sig")
 
-    if len(sys.argv) == 1:
-        file_name = "sig.tmpl.teal"
-    else:
-        file_name = sys.argv[1]
-    
+    file_name = "sig.tmpl.teal" if len(sys.argv) == 1 else sys.argv[1]
     with open(file_name, "w") as f:
         f.write(core.get_sig_tmpl())

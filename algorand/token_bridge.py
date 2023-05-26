@@ -51,18 +51,18 @@ def fullyCompileContract(genTeal, client: AlgodClient, contract: Expr, name, dev
 
     if genTeal:
         with open(name, "w") as f:
-            print("Writing " + name)
+            print(f"Writing {name}")
             f.write(teal)
     else:
         with open(name, "r") as f:
-            print("Reading " + name)
+            print(f"Reading {name}")
             teal = f.read()
 
     response = client.compile(teal)
 
-    with open(name + ".bin", "w") as fout:
+    with open(f"{name}.bin", "w") as fout:
         fout.write(response["result"])
-    with open(name + ".hash", "w") as fout:
+    with open(f"{name}.hash", "w") as fout:
         fout.write(decode_address(response["hash"]).hex())
 
     return response

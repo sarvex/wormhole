@@ -29,7 +29,7 @@ class InlineAssembly(LeafExpr):
 
 
     def __str__(self):
-        return "(InlineAssembly: {})".format(self.opcode)
+        return f"(InlineAssembly: {self.opcode})"
 
 
     def type_of(self):

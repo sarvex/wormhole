@@ -38,19 +38,19 @@ class AlgoTest(PortalCore):
         super().__init__()
 
     def getBalances(self, client: AlgodClient, account: str) -> Dict[int, int]:
-        balances: Dict[int, int] = dict()
-    
+        balances: Dict[int, int] = {}
+
         accountInfo = client.account_info(account)
-    
+
         # set key 0 to Algo balance
         balances[0] = accountInfo["amount"]
-    
+
         assets: List[Dict[str, Any]] = accountInfo.get("assets", [])
         for assetHolding in assets:
             assetID = assetHolding["asset-id"]
             amount = assetHolding["amount"]
             balances[assetID] = amount
-    
+
         return balances
 
     def createTestApp(
@@ -94,7 +94,7 @@ class AlgoTest(PortalCore):
         return int.from_bytes(b64decode(txn.innerTxns[0]["logs"][0]), "big")
 
     def getVAA(self, client, sender, sid, app):
-        if sid == None:
+        if sid is None:
             raise Exception("getVAA called with a sid of None")
 
         saddr = get_application_address(app)
@@ -110,9 +110,7 @@ class AlgoTest(PortalCore):
             print("indexer is broken in local net... stop/clean/restart the sandbox")
             sys.exit(0)
 
-        txns = []
-
-        txns.append(
+        txns = [
             transaction.ApplicationCallTxn(
                 sender=sender.getAddress(),
                 index=self.tokenid,
@@ -120,7 +118,8 @@ class AlgoTest(PortalCore):
                 app_args=[b"nop"],
                 sp=client.suggested_params(),
             )
-        )
+        ]
+
         self.sendTxn(client, sender, txns, False)
 
         while True:
@@ -163,7 +162,6 @@ class AlgoTest(PortalCore):
         aa = decode_address(get_application_address(appid)).hex()
         emitter_addr = self.optin(client, sender, self.coreid, 0, aa)
 
-        txns = []
         sp = client.suggested_params()
 
         a = transaction.ApplicationCallTxn(
@@ -178,8 +176,7 @@ class AlgoTest(PortalCore):
 
         a.fee = a.fee * 2
 
-        txns.append(a)
-
+        txns = [a]
         resp = self.sendTxn(client, sender, txns, True)
 
         self.INDEXER_ROUND = resp.confirmedRound
@@ -187,8 +184,6 @@ class AlgoTest(PortalCore):
         return self.parseSeqFromLog(resp)
 
     def createTestAsset(self, client, sender):
-        txns = []
-
         a = transaction.PaymentTxn(
             sender = sender.getAddress(), 
             sp = client.suggested_params(), 
@@ -196,8 +191,7 @@ class AlgoTest(PortalCore):
             amt = 300000
         )
 
-        txns.append(a)
-
+        txns = [a]
         sp = client.suggested_params()
         a = transaction.ApplicationCallTxn(
             sender=sender.getAddress(),
@@ -212,17 +206,14 @@ class AlgoTest(PortalCore):
         txns.append(a)
         transaction.assign_group_id(txns)
 
-        grp = []
         pk = sender.getPrivateKey()
-        for t in txns:
-            grp.append(t.sign(pk))
-
+        grp = [t.sign(pk) for t in txns]
         client.send_transactions(grp)
         resp = self.waitForTransaction(client, grp[-1].get_txid())
-        
+
         aid = int.from_bytes(resp.__dict__["logs"][0], "big")
 
-        print("Opting " + sender.getAddress() + " into " + str(aid))
+        print(f"Opting {sender.getAddress()} into {str(aid)}")
         self.asset_optin(client, sender, aid, sender.getAddress())
 
         txns = []
@@ -260,7 +251,6 @@ class AlgoTest(PortalCore):
         if not wormhole:
             creator = self.optin(client, sender, self.tokenid, asset_id, b"native".hex())
 
-        txns = []
         sp = client.suggested_params()
 
         a = transaction.ApplicationCallTxn(
@@ -276,8 +266,7 @@ class AlgoTest(PortalCore):
 
         a.fee = a.fee * 2
 
-        txns.append(a)
-
+        txns = [a]
         resp = self.sendTxn(client, sender, txns, True)
 
         # Point us at the correct round
@@ -305,7 +294,7 @@ class AlgoTest(PortalCore):
 
         if not wormhole:
             creator = self.optin(client, sender, self.tokenid, asset_id, b"native".hex())
-            print("non wormhole account " + creator)
+            print(f"non wormhole account {creator}")
 
         sp = client.suggested_params()
 
@@ -359,7 +348,7 @@ class AlgoTest(PortalCore):
             accounts=[emitter_addr, creator, c["address"]]
 
         args = [b"sendTransfer", asset_id, quantity, decode_address(receiver), chain, fee]
-        if None != payload:
+        if payload != None:
             args.append(payload)
 
 #        pprint.pprint(args)
@@ -448,18 +437,22 @@ class AlgoTest(PortalCore):
         player3 = self.getTemporaryAccount(client)
 
         self.coreid = 4
-        print("coreid = " + str(self.coreid))
+        print(f"coreid = {self.coreid}")
 
         self.tokenid = 6
-        print("token bridge " + str(self.tokenid) + " address " + get_application_address(self.tokenid))
+        print(
+            f"token bridge {self.tokenid} address {get_application_address(self.tokenid)}"
+        )
 
         self.testid = self.createTestApp(client, player2)
-        print("testid " + str(self.testid) + " address " + get_application_address(self.testid))
+        print(
+            f"testid {str(self.testid)} address {get_application_address(self.testid)}"
+        )
 
         print("Lets create a brand new non-wormhole asset and try to attest and send it out")
         self.testasset = self.createTestAsset(client, player2)
-        
-        print("test asset id: " + str(self.testasset))
+
+        print(f"test asset id: {str(self.testasset)}")
 
         print("Lets try to create an attest for a non-wormhole thing with a huge number of decimals")
         # paul - attestFromAlgorand

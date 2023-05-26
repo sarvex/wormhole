@@ -78,8 +78,8 @@ class GenTest:
             return encode_single(type, val).hex()[64-(16):64]
         if type == 'uint128':
             return encode_single(type, val).hex()[64-(32):64]
-        if type == 'uint256' or type == 'bytes32':
-            return encode_single(type, val).hex()[64-(64):64]
+        if type in ['uint256', 'bytes32']:
+            return encode_single(type, val).hex()[:64]
         raise Exception("invalid type")
 
     def createTrashVAA(self, guardianSetIndex, ts, nonce, emitterChainId, emitterAddress, sequence, consistencyLevel, target, payload, version=1):
@@ -176,7 +176,7 @@ class GenTest:
             fee = random.randint(0, 2**256-1).to_bytes(32, byteorder="big")
             payload += fee
 
-        if action == 0x03:
+        elif action == 0x03:
             fromAddress = random.randbytes(2)
             arbitraryPayload = random.randbytes(random.randint(0,4))
             payload += fromAddress + arbitraryPayload
@@ -212,7 +212,7 @@ class GenTest:
         )
 
     def genGuardianSetUpgrade(self, signers, guardianSet, targetSet, nonce, seq):
-        b  = self.zeroPadBytes[0:(28*2)]
+        b = self.zeroPadBytes[:28*2]
         b += self.encoder("uint8", ord("C"))
         b += self.encoder("uint8", ord("o"))
         b += self.encoder("uint8", ord("r"))
@@ -225,11 +225,11 @@ class GenTest:
         for i in self.guardianKeys:
             b += i
 
-        emitter = bytes.fromhex(self.zeroPadBytes[0:(31*2)] + "04")
+        emitter = bytes.fromhex(f"{self.zeroPadBytes[:31 * 2]}04")
         return self.createSignedVAA(guardianSet, signers, int(time.time()), nonce, 1, emitter, seq, 32, 0, b)
 
     def genGSetFee(self, signers, guardianSet, nonce, seq, amt):
-        b  = self.zeroPadBytes[0:(28*2)]
+        b = self.zeroPadBytes[:28*2]
         b += self.encoder("uint8", ord("C"))
         b += self.encoder("uint8", ord("o"))
         b += self.encoder("uint8", ord("r"))
@@ -238,11 +238,11 @@ class GenTest:
         b += self.encoder("uint16", 8)
         b += self.encoder("uint256", int(amt))  # a whole algo!
 
-        emitter = bytes.fromhex(self.zeroPadBytes[0:(31*2)] + "04")
+        emitter = bytes.fromhex(f"{self.zeroPadBytes[:31 * 2]}04")
         return self.createSignedVAA(guardianSet, signers, int(time.time()), nonce, 1, emitter, seq, 32, 0, b)
 
     def genGFeePayout(self, signers, guardianSet, targetSet, nonce, seq, amt, dest):
-        b  = self.zeroPadBytes[0:(28*2)]
+        b = self.zeroPadBytes[:28*2]
         b += self.encoder("uint8", ord("C"))
         b += self.encoder("uint8", ord("o"))
         b += self.encoder("uint8", ord("r"))
@@ -252,7 +252,7 @@ class GenTest:
         b += self.encoder("uint256", int(amt * 1000000))
         b += decode_address(dest).hex()
 
-        emitter = bytes.fromhex(self.zeroPadBytes[0:(31*2)] + "04")
+        emitter = bytes.fromhex(f"{self.zeroPadBytes[:31 * 2]}04")
         return self.createSignedVAA(guardianSet, signers, int(time.time()), nonce, 1, emitter, seq, 32, 0, b)
 
     def getEmitter(self, chain):
@@ -269,7 +269,7 @@ class GenTest:
         raise Exception("invalid chain")
         
     def genRegisterChain(self, signers, guardianSet, nonce, seq, chain, addr = None):
-        b  = self.zeroPadBytes[0:((32 -11)*2)]
+        b = self.zeroPadBytes[:(32 -11)*2]
         b += self.encoder("uint8", ord("T"))
         b += self.encoder("uint8", ord("o"))
         b += self.encoder("uint8", ord("k"))
@@ -285,23 +285,20 @@ class GenTest:
         b += self.encoder("uint8", 1)  # action
         b += self.encoder("uint16", 0) # target chain
         b += self.encoder("uint16", chain)
-        if addr == None:
-            b += self.getEmitter(chain)
-        else:
-            b += addr
-        emitter = bytes.fromhex(self.zeroPadBytes[0:(31*2)] + "04")
+        b += self.getEmitter(chain) if addr is None else addr
+        emitter = bytes.fromhex(f"{self.zeroPadBytes[:31 * 2]}04")
         return self.createSignedVAA(guardianSet, signers, int(time.time()), nonce, 1, emitter, seq, 32, 0, b)
 
     def genAssetMeta(self, signers, guardianSet, nonce, seq, tokenAddress, chain, decimals, symbol, name):
         b  = self.encoder("uint8", 2)
-        b += self.zeroPadBytes[0:((32-len(tokenAddress))*2)]
+        b += self.zeroPadBytes[:(32-len(tokenAddress))*2]
         b += tokenAddress.hex()
         b += self.encoder("uint16", chain)
         b += self.encoder("uint8", decimals)
         b += symbol.hex()
-        b += self.zeroPadBytes[0:((32-len(symbol))*2)]
+        b += self.zeroPadBytes[:(32-len(symbol))*2]
         b += name.hex()
-        b += self.zeroPadBytes[0:((32-len(name))*2)]
+        b += self.zeroPadBytes[:(32-len(name))*2]
         emitter = bytes.fromhex(self.getEmitter(chain))
         return self.createSignedVAA(guardianSet, signers, int(time.time()), nonce, 1, emitter, seq, 32, 0, b)
 
@@ -338,12 +335,12 @@ class GenTest:
         b  = self.encoder("uint8", 1)
         b += self.encoder("uint256", int(amount * 100000000))
 
-        b += self.zeroPadBytes[0:((32-len(tokenAddress))*2)]
+        b += self.zeroPadBytes[:(32-len(tokenAddress))*2]
         b += tokenAddress.hex()
 
         b += self.encoder("uint16", tokenChain)
 
-        b += self.zeroPadBytes[0:((32-len(toAddress))*2)]
+        b += self.zeroPadBytes[:(32-len(toAddress))*2]
         b += toAddress.hex()
 
         b += self.encoder("uint16", toChain)

@@ -46,15 +46,16 @@ def algod_directories(network_dir):
     data_dir=join(network_dir, 'Node')
 
     kmd_dir = None
-    options = [filename for filename in os.listdir(data_dir) if filename.startswith('kmd')]
-
-    # When setting up the real network the kmd dir doesn't exist yet because algod hasn't been started.
-    if len(options) == 0:
-        kmd_dir=join(data_dir, 'kmd-v0.5')
-        os.mkdir(kmd_dir)
-    else:
+    if options := [
+        filename
+        for filename in os.listdir(data_dir)
+        if filename.startswith('kmd')
+    ]:
         kmd_dir=join(data_dir, options[0])
 
+    else:
+        kmd_dir=join(data_dir, 'kmd-v0.5')
+        os.mkdir(kmd_dir)
     return data_dir, kmd_dir
 
 
@@ -72,8 +73,10 @@ def create_real_network(bin_dir, network_dir, template, genesis_file) -> List[st
 
     data_dir, kmd_dir = algod_directories(network_dir)
 
-    return ['%s/goal node start -d %s' % (bin_dir, data_dir),
-            '%s/kmd start -t 0 -d %s' % (bin_dir, kmd_dir)]
+    return [
+        f'{bin_dir}/goal node start -d {data_dir}',
+        f'{bin_dir}/kmd start -t 0 -d {kmd_dir}',
+    ]
 
 
 def create_private_network(bin_dir, network_dir, template) -> List[str]:
@@ -85,11 +88,18 @@ def create_private_network(bin_dir, network_dir, template) -> List[str]:
         shutil.rmtree(args.network_dir)
 
     # Use goal to create the private network.
-    subprocess.check_call(['%s/goal network create -n sandnet -r %s -t %s' % (bin_dir, network_dir, template)], shell=True)
+    subprocess.check_call(
+        [
+            f'{bin_dir}/goal network create -n sandnet -r {network_dir} -t {template}'
+        ],
+        shell=True,
+    )
 
     data_dir, kmd_dir = algod_directories(network_dir)
-    return ['%s/goal network start -r %s' % (bin_dir, network_dir),
-            '%s/kmd start -t 0 -d %s' % (bin_dir, kmd_dir)]
+    return [
+        f'{bin_dir}/goal network start -r {network_dir}',
+        f'{bin_dir}/kmd start -t 0 -d {kmd_dir}',
+    ]
 
 
 def configure_data_dir(network_dir, token, algod_port, kmd_port, bootstrap_url):
@@ -115,9 +125,11 @@ if __name__ == '__main__':
     pp.pprint(vars(args))
 
 
-    # Setup network
-    privateNetworkMode = args.genesis_file == None or args.genesis_file == '' or os.path.isdir(args.genesis_file)
-    if privateNetworkMode:
+    if (
+        privateNetworkMode := args.genesis_file is None
+        or args.genesis_file == ''
+        or os.path.isdir(args.genesis_file)
+    ):
         print('Creating a private network.')
         startCommands = create_private_network(args.bin_dir, args.network_dir, args.network_template)
     else:
