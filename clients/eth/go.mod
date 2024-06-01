@@ -4,7 +4,7 @@ go 1.19
 
 require (
 	github.com/certusone/wormhole/node v0.0.0-20210722131135-a191017d22d0
-	github.com/ethereum/go-ethereum v1.11.6
+	github.com/ethereum/go-ethereum v1.13.15
 	github.com/spf13/cobra v1.6.0
 )
 
